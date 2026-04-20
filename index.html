@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gold Rush Slots</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <h1>💰 Gold Rush</h1>
+  <p class="subtitle">Spin the reels — strike it rich!</p>
+
+  <div class="game-container">
+
+    <!-- Balance bar -->
+    <div class="balance-bar">
+      <div class="balance-item">
+        <span class="balance-label">Balance</span>
+        <span class="balance-value" id="balanceDisplay">1000</span>
+      </div>
+      <div class="balance-item">
+        <span class="balance-label">Bet</span>
+        <span class="balance-value" id="betDisplay">1</span>
+      </div>
+      <div class="balance-item">
+        <span class="balance-label">Last Win</span>
+        <span class="balance-value" id="lastWinDisplay">—</span>
+      </div>
+    </div>
+
+    <!-- Reels -->
+    <div class="reel-wrapper">
+      <div class="reel-overlay-top"></div>
+      <canvas id="reelCanvas"></canvas>
+      <div class="reel-overlay-bottom"></div>
+    </div>
+
+    <!-- Win message -->
+    <div class="win-display" id="winDisplay"></div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="bet-group">
+        <span class="bet-label">Bet</span>
+        <button class="btn btn-small" id="betDown">−</button>
+        <span class="bet-display" id="betValue">1</span>
+        <button class="btn btn-small" id="betUp">+</button>
+      </div>
+      <button class="btn btn-max-bet" id="maxBet">MAX BET</button>
+      <button class="btn btn-spin" id="spinBtn">SPIN</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar">
+      Spins: 0 &nbsp;|&nbsp; Spent: 0 &nbsp;|&nbsp; Won: 0 &nbsp;|&nbsp; RTP: —
+    </div>
+
+    <!-- Paytable toggle -->
+    <button class="paytable-toggle" id="paytableToggle">▼ PAYTABLE</button>
+
+    <div class="paytable-panel" id="paytablePanel">
+      <div class="paytable-title">— PAYTABLE (multiplier × bet) —</div>
+      <div class="paytable-grid" id="paytableGrid"></div>
+    </div>
+
+  </div>
+
+  <script src="js/symbols.js"></script>
+  <script src="js/rng.js"></script>
+  <script src="js/winDetection.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    // Init renderer
+    const canvas = document.getElementById('reelCanvas');
+    const renderer = new Renderer(canvas);
+    renderer.drawGrid(renderer.grid, [], 0);
+
+    // Init game
+    const game = new GoldRushGame(renderer);
+
+    // UI elements
+    const balanceEl = document.getElementById('balanceDisplay');
+    const betValueEl = document.getElementById('betValue');
+    const betDisplayEl = document.getElementById('betDisplay');
+    const lastWinEl = document.getElementById('lastWinDisplay');
+    const winDisplayEl = document.getElementById('winDisplay');
+    const spinBtn = document.getElementById('spinBtn');
+    const statsBar = document.getElementById('statsBar');
+
+    function updateUI() {
+      const stats = game.getStats();
+      balanceEl.textContent = stats.balance;
+      betValueEl.textContent = stats.bet;
+      betDisplayEl.textContent = stats.bet;
+      const s = stats;
+      statsBar.innerHTML = `Spins: ${s.spinCount} &nbsp;|&nbsp; Spent: ${s.totalSpent} &nbsp;|&nbsp; Won: ${s.totalWon} &nbsp;|&nbsp; RTP: ${s.rtp}%`;
+    }
+
+    game.onBalanceChange = (bal) => {
+      balanceEl.textContent = bal;
+    };
+
+    game.onWin = (wins, payout) => {
+      lastWinEl.textContent = payout;
+      lastWinEl.classList.add('win-flash');
+      setTimeout(() => lastWinEl.classList.remove('win-flash'), 2000);
+
+      const lineWins = wins.filter(w => w.payline);
+      const scatterWin = wins.find(w => w.symbol === 'scatter' && !w.payline);
+      const parts = [];
+      if (scatterWin) parts.push(`${scatterWin.count}× SCATTER pays ${scatterWin.payout}!`);
+      if (lineWins.length > 0) {
+        const best = lineWins.reduce((a, b) => a.payout > b.payout ? a : b);
+        const sym = SYMBOLS[best.symbol.toUpperCase()] || Object.values(SYMBOLS).find(s => s.id === best.symbol);
+        parts.push(`${best.count}× ${sym ? sym.emoji + sym.label : best.symbol} → ${best.payout} coins`);
+        if (lineWins.length > 1) parts.push(`+${lineWins.length - 1} more line${lineWins.length > 2 ? 's' : ''}!`);
+      }
+      winDisplayEl.textContent = parts.join('  ·  ');
+      setTimeout(() => { winDisplayEl.textContent = ''; }, 4000);
+      updateUI();
+    };
+
+    game.onSpin = () => {
+      spinBtn.disabled = true;
+      spinBtn.classList.add('spinning');
+      spinBtn.textContent = '...';
+      winDisplayEl.textContent = '';
+      lastWinEl.textContent = '—';
+      updateUI();
+    };
+
+    // Bet controls
+    document.getElementById('betDown').addEventListener('click', () => {
+      game.setBet(game.bet - 1);
+      updateUI();
+    });
+    document.getElementById('betUp').addEventListener('click', () => {
+      game.setBet(game.bet + 1);
+      updateUI();
+    });
+    document.getElementById('maxBet').addEventListener('click', () => {
+      game.setBet(50);
+      updateUI();
+    });
+
+    // Spin
+    spinBtn.addEventListener('click', async () => {
+      if (!game.canSpin()) return;
+      await game.spin();
+      spinBtn.disabled = false;
+      spinBtn.classList.remove('spinning');
+      spinBtn.textContent = 'SPIN';
+      if (game.balance < game.bet) {
+        spinBtn.disabled = true;
+        winDisplayEl.textContent = '💸 Out of coins! Refresh to restart.';
+      }
+      updateUI();
+    });
+
+    // Spacebar to spin
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && game.canSpin()) {
+        e.preventDefault();
+        spinBtn.click();
+      }
+    });
+
+    // Paytable
+    const paytablePanel = document.getElementById('paytablePanel');
+    const paytableGrid = document.getElementById('paytableGrid');
+    document.getElementById('paytableToggle').addEventListener('click', function () {
+      paytablePanel.classList.toggle('open');
+      this.textContent = paytablePanel.classList.contains('open') ? '▲ PAYTABLE' : '▼ PAYTABLE';
+    });
+
+    // Build paytable
+    Object.entries(PAYTABLE).forEach(([id, pays]) => {
+      const sym = Object.values(SYMBOLS).find(s => s.id === id);
+      if (!sym) return;
+      const row = document.createElement('div');
+      row.className = 'pt-row';
+      row.innerHTML = `<span class="pt-sym">${sym.emoji} ${sym.label}</span>
+        <span class="pt-vals">3×${pays[3] || '—'} · 4×${pays[4] || '—'} · 5×${pays[5] || '—'}</span>`;
+      paytableGrid.appendChild(row);
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
