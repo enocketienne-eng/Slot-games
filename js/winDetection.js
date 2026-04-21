@@ -30,17 +30,24 @@ function evaluatePayline(grid, payline) {
 
 // Evaluate scatter wins anywhere on grid (not on paylines)
 function evaluateScatter(grid) {
-  let scatterCount = 0;
+  let count = 0;
   for (let r = 0; r < 5; r++) {
     for (let row = 0; row < 3; row++) {
-      if (grid[r][row] === 'scatter') scatterCount++;
+      if (grid[r][row] === 'scatter') count++;
     }
   }
-  if (scatterCount >= 3) {
-    const mult = (PAYTABLE['scatter'] || {})[scatterCount] || 0;
-    return { symbol: 'scatter', count: scatterCount, multiplier: mult };
+  if (count >= FREE_SPINS_TRIGGER_COUNT) {
+    const mult = (PAYTABLE['scatter'] || {})[Math.min(count, 5)] || 0;
+    return { symbol: 'scatter', count, multiplier: mult, triggersBonus: count >= FREE_SPINS_TRIGGER_COUNT };
   }
   return null;
+}
+
+// Count scatter symbols for bonus trigger check (independent of payout)
+function countScatters(grid) {
+  let n = 0;
+  for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) if (grid[r][row] === 'scatter') n++;
+  return n;
 }
 
 // Full win evaluation: returns array of win objects

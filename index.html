@@ -7,10 +7,25 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <h1>💰 Gold Rush</h1>
-  <p class="subtitle">Spin the reels — strike it rich!</p>
+  <div class="game-wrapper">
 
-  <div class="game-container">
+    <!-- Header -->
+    <div class="game-header">
+      <h1>Gold Rush</h1>
+      <p class="subtitle">Strike it rich on the frontier!</p>
+    </div>
+
+    <!-- Reel section -->
+    <div class="reel-section">
+      <div class="reel-frame">
+        <!-- Win banner slides in over reels -->
+        <div class="win-banner" id="winBanner">
+          <div class="win-banner-label" id="winBannerLabel">WIN!</div>
+          <div class="win-banner-amount" id="winBannerAmount"></div>
+        </div>
+        <canvas id="reelCanvas"></canvas>
+      </div>
+    </div>
 
     <!-- Balance bar -->
     <div class="balance-bar">
@@ -19,48 +34,48 @@
         <span class="balance-value" id="balanceDisplay">1000</span>
       </div>
       <div class="balance-item">
-        <span class="balance-label">Bet</span>
-        <span class="balance-value" id="betDisplay">1</span>
-      </div>
-      <div class="balance-item">
         <span class="balance-label">Last Win</span>
         <span class="balance-value" id="lastWinDisplay">—</span>
       </div>
+      <div class="balance-item">
+        <span class="balance-label">Bet</span>
+        <span class="balance-value" id="betDisplayTop">1</span>
+      </div>
     </div>
 
-    <!-- Reels -->
-    <div class="reel-wrapper">
-      <div class="reel-overlay-top"></div>
-      <canvas id="reelCanvas"></canvas>
-      <div class="reel-overlay-bottom"></div>
-    </div>
+    <!-- Bonus badge -->
+    <div class="bonus-badge" id="bonusBadge">FREE SPINS — ×2</div>
 
-    <!-- Win message -->
-    <div class="win-display" id="winDisplay"></div>
-
-    <!-- Controls -->
-    <div class="controls">
+    <!-- Control bar -->
+    <div class="control-bar">
       <div class="bet-group">
         <span class="bet-label">Bet</span>
-        <button class="btn btn-small" id="betDown">−</button>
+        <button class="btn-adj" id="betDown" aria-label="Decrease bet">−</button>
         <span class="bet-display" id="betValue">1</span>
-        <button class="btn btn-small" id="betUp">+</button>
+        <button class="btn-adj" id="betUp" aria-label="Increase bet">+</button>
       </div>
-      <button class="btn btn-max-bet" id="maxBet">MAX BET</button>
-      <button class="btn btn-spin" id="spinBtn">SPIN</button>
+
+      <button class="btn-max-bet" id="maxBet">MAX</button>
+
+      <div class="spin-btn-wrap">
+        <button class="btn-spin" id="spinBtn" aria-label="Spin reels">SPIN</button>
+      </div>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-bar" id="statsBar">
-      Spins: 0 &nbsp;|&nbsp; Spent: 0 &nbsp;|&nbsp; Won: 0 &nbsp;|&nbsp; RTP: —
+    <!-- Secondary bar: stats + paytable toggle -->
+    <div class="secondary-bar">
+      <span class="stats-text" id="statsBar">Spins: 0 | Spent: 0 | Won: 0 | RTP: —</span>
+      <button class="btn-paytable" id="paytableToggle">▼ PAYTABLE</button>
     </div>
 
-    <!-- Paytable toggle -->
-    <button class="paytable-toggle" id="paytableToggle">▼ PAYTABLE</button>
-
+    <!-- Paytable -->
     <div class="paytable-panel" id="paytablePanel">
-      <div class="paytable-title">— PAYTABLE (multiplier × bet) —</div>
-      <div class="paytable-grid" id="paytableGrid"></div>
+      <div class="paytable-title">Paytable · Multiplier × Bet</div>
+      <div class="pt-grid" id="ptGrid"></div>
+      <p style="font-family:'Roboto Slab',serif;font-size:0.68rem;color:#7a5c30;text-align:center;margin-top:10px;">
+        Wild substitutes all symbols except Scatter &nbsp;·&nbsp;
+        3+ Scatters anywhere = 10 Free Spins (×2 multiplier)
+      </p>
     </div>
 
   </div>
@@ -71,66 +86,93 @@
   <script src="js/renderer.js"></script>
   <script src="js/game.js"></script>
   <script>
-    // Init renderer
+    // ── Init ──────────────────────────────────────────────
     const canvas = document.getElementById('reelCanvas');
     const renderer = new Renderer(canvas);
     renderer.drawGrid(renderer.grid, [], 0);
 
-    // Init game
     const game = new GoldRushGame(renderer);
 
-    // UI elements
-    const balanceEl = document.getElementById('balanceDisplay');
-    const betValueEl = document.getElementById('betValue');
-    const betDisplayEl = document.getElementById('betDisplay');
-    const lastWinEl = document.getElementById('lastWinDisplay');
-    const winDisplayEl = document.getElementById('winDisplay');
-    const spinBtn = document.getElementById('spinBtn');
-    const statsBar = document.getElementById('statsBar');
+    // ── DOM refs ──────────────────────────────────────────
+    const balanceEl    = document.getElementById('balanceDisplay');
+    const betValueEl   = document.getElementById('betValue');
+    const betTopEl     = document.getElementById('betDisplayTop');
+    const lastWinEl    = document.getElementById('lastWinDisplay');
+    const spinBtn      = document.getElementById('spinBtn');
+    const statsBar     = document.getElementById('statsBar');
+    const bonusBadge   = document.getElementById('bonusBadge');
+    const winBanner    = document.getElementById('winBanner');
+    const winBannerLabel  = document.getElementById('winBannerLabel');
+    const winBannerAmount = document.getElementById('winBannerAmount');
 
-    function updateUI() {
-      const stats = game.getStats();
-      balanceEl.textContent = stats.balance;
-      betValueEl.textContent = stats.bet;
-      betDisplayEl.textContent = stats.bet;
-      const s = stats;
-      statsBar.innerHTML = `Spins: ${s.spinCount} &nbsp;|&nbsp; Spent: ${s.totalSpent} &nbsp;|&nbsp; Won: ${s.totalWon} &nbsp;|&nbsp; RTP: ${s.rtp}%`;
+    let bannerTimer = null;
+
+    // ── Win banner ────────────────────────────────────────
+    function showBanner(label, amount, tier) {
+      winBannerLabel.textContent = label;
+      winBannerAmount.textContent = `${amount} COINS`;
+      winBanner.className = 'win-banner visible' + (tier === 'mega' ? ' mega-win' : tier === 'big' ? ' big-win' : '');
+      if (bannerTimer) clearTimeout(bannerTimer);
+      const duration = tier === 'mega' ? 4000 : tier === 'big' ? 3000 : 2200;
+      bannerTimer = setTimeout(hideBanner, duration);
     }
 
-    game.onBalanceChange = (bal) => {
-      balanceEl.textContent = bal;
-    };
+    function hideBanner() {
+      winBanner.className = 'win-banner';
+    }
 
-    game.onWin = (wins, payout) => {
-      lastWinEl.textContent = payout;
-      lastWinEl.classList.add('win-flash');
-      setTimeout(() => lastWinEl.classList.remove('win-flash'), 2000);
+    // ── Stats update ──────────────────────────────────────
+    function updateUI() {
+      const s = game.getStats();
+      balanceEl.textContent = s.balance;
+      betValueEl.textContent = s.bet;
+      betTopEl.textContent = s.bet;
+      statsBar.textContent = `Spins: ${s.spinCount} | Spent: ${s.totalSpent} | Won: ${s.totalWon} | RTP: ${s.rtp}%`;
+    }
 
-      const lineWins = wins.filter(w => w.payline);
-      const scatterWin = wins.find(w => w.symbol === 'scatter' && !w.payline);
-      const parts = [];
-      if (scatterWin) parts.push(`${scatterWin.count}× SCATTER pays ${scatterWin.payout}!`);
-      if (lineWins.length > 0) {
-        const best = lineWins.reduce((a, b) => a.payout > b.payout ? a : b);
-        const sym = SYMBOLS[best.symbol.toUpperCase()] || Object.values(SYMBOLS).find(s => s.id === best.symbol);
-        parts.push(`${best.count}× ${sym ? sym.emoji + sym.label : best.symbol} → ${best.payout} coins`);
-        if (lineWins.length > 1) parts.push(`+${lineWins.length - 1} more line${lineWins.length > 2 ? 's' : ''}!`);
-      }
-      winDisplayEl.textContent = parts.join('  ·  ');
-      setTimeout(() => { winDisplayEl.textContent = ''; }, 4000);
-      updateUI();
-    };
+    // ── Game callbacks ────────────────────────────────────
+    game.onBalanceChange = (bal) => { balanceEl.textContent = bal; };
 
     game.onSpin = () => {
       spinBtn.disabled = true;
       spinBtn.classList.add('spinning');
       spinBtn.textContent = '...';
-      winDisplayEl.textContent = '';
+      hideBanner();
       lastWinEl.textContent = '—';
       updateUI();
     };
 
-    // Bet controls
+    game.onWin = (wins, payout) => {
+      lastWinEl.textContent = payout;
+      lastWinEl.classList.add('win-flash');
+      setTimeout(() => lastWinEl.classList.remove('win-flash'), 1800);
+
+      // Determine win tier for banner (Big Win = 20x bet, Mega Win = 50x bet)
+      const multiplier = payout / game.bet;
+      let tier = 'normal', label = 'WIN!';
+      if (multiplier >= 50) { tier = 'mega'; label = '💰 MEGA WIN! 💰'; }
+      else if (multiplier >= 20) { tier = 'big'; label = '★ BIG WIN! ★'; }
+
+      showBanner(label, payout, tier);
+      updateUI();
+    };
+
+    game.onFreeSpinsTriggered = (count, mult) => {
+      bonusBadge.textContent = `FREE SPINS: ${count} remaining (×${mult})`;
+      bonusBadge.classList.add('active');
+      showBanner(`FREE SPINS TRIGGERED!`, `${count} SPINS × ${mult}`, 'big');
+    };
+
+    game.onFreeSpinsUpdate = (remaining) => {
+      bonusBadge.textContent = `FREE SPINS: ${remaining} remaining (×${game.freeSpinsMultiplier})`;
+    };
+
+    game.onFreeSpinsComplete = () => {
+      bonusBadge.classList.remove('active');
+      showBanner('Free Spins Complete!', game.totalWon, 'normal');
+    };
+
+    // ── Bet controls ──────────────────────────────────────
     document.getElementById('betDown').addEventListener('click', () => {
       game.setBet(game.bet - 1);
       updateUI();
@@ -144,47 +186,51 @@
       updateUI();
     });
 
-    // Spin
-    spinBtn.addEventListener('click', async () => {
+    // ── Spin ──────────────────────────────────────────────
+    async function doSpin() {
       if (!game.canSpin()) return;
       await game.spin();
       spinBtn.disabled = false;
       spinBtn.classList.remove('spinning');
-      spinBtn.textContent = 'SPIN';
-      if (game.balance < game.bet) {
+      spinBtn.textContent = game.inBonusRound ? 'FREE' : 'SPIN';
+
+      if (!game.inBonusRound && game.balance < game.bet) {
         spinBtn.disabled = true;
-        winDisplayEl.textContent = '💸 Out of coins! Refresh to restart.';
+        showBanner('Out of Coins!', 'Refresh to restart', 'normal');
       }
       updateUI();
-    });
+    }
 
-    // Spacebar to spin
+    spinBtn.addEventListener('click', doSpin);
+
+    // Spacebar shortcut (§5 spec)
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && game.canSpin()) {
+      if (e.code === 'Space' && !e.repeat && game.canSpin()) {
         e.preventDefault();
-        spinBtn.click();
+        doSpin();
       }
     });
 
-    // Paytable
-    const paytablePanel = document.getElementById('paytablePanel');
-    const paytableGrid = document.getElementById('paytableGrid');
-    document.getElementById('paytableToggle').addEventListener('click', function () {
-      paytablePanel.classList.toggle('open');
-      this.textContent = paytablePanel.classList.contains('open') ? '▲ PAYTABLE' : '▼ PAYTABLE';
-    });
-
-    // Build paytable
+    // ── Paytable ──────────────────────────────────────────
+    const ptGrid = document.getElementById('ptGrid');
     Object.entries(PAYTABLE).forEach(([id, pays]) => {
       const sym = Object.values(SYMBOLS).find(s => s.id === id);
       if (!sym) return;
+      const shapeChar = { star:'★', diamond:'◆', rect:'▬', circle:'●', cross:'✚', horseshoe:'∪', hat:'⌂', square:'■' };
       const row = document.createElement('div');
       row.className = 'pt-row';
-      row.innerHTML = `<span class="pt-sym">${sym.emoji} ${sym.label}</span>
-        <span class="pt-vals">3×${pays[3] || '—'} · 4×${pays[4] || '—'} · 5×${pays[5] || '—'}</span>`;
-      paytableGrid.appendChild(row);
+      row.innerHTML = `<span class="pt-sym" style="color:${sym.color}">${shapeChar[sym.shape]||'•'} ${sym.label}</span>
+        <span class="pt-vals">${pays[3]}× · ${pays[4]}× · ${pays[5]}×</span>`;
+      ptGrid.appendChild(row);
     });
 
+    document.getElementById('paytableToggle').addEventListener('click', function () {
+      const panel = document.getElementById('paytablePanel');
+      panel.classList.toggle('open');
+      this.textContent = panel.classList.contains('open') ? '▲ PAYTABLE' : '▼ PAYTABLE';
+    });
+
+    // ── Initial render ────────────────────────────────────
     updateUI();
   </script>
 </body>
