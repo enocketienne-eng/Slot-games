@@ -58,12 +58,20 @@ test('symbol pool has all symbols represented', () => {
   assert(ids.has('cowboy_hat'), 'cowboy_hat in pool');
 });
 
-test('symbol weights sum to expected total', () => {
+test('symbol weights sum to math-sheet total (LUC-4 §10)', () => {
+  // Source of truth: UX design spec LUC-4 §10. Phase 0 weights:
+  // wild 2 + scatter 2 + gold_bar 4 + gold_nugget 6 + pickaxe 8 +
+  // horseshoe 8 + cowboy_hat 10 + tnt_crate 10 = 50.
+  // Hardcoded so any drift in SYMBOLS[*].weight surfaces as a test failure
+  // rather than passing silently against a self-derived expected value.
+  const EXPECTED_TOTAL_WEIGHT = 50;
   let sum = 0;
   for (const sym of Object.values(SYMBOLS)) sum += sym.weight;
-  const expected = Object.values(SYMBOLS).reduce((a, s) => a + s.weight, 0);
-  assertEqual(sum, expected, 'Total weight');
-  assert(sum > 0, 'Total weight must be positive');
+  assertEqual(
+    sum,
+    EXPECTED_TOTAL_WEIGHT,
+    'Total symbol weight must match LUC-4 §10 math sheet'
+  );
 });
 
 console.log('\nPayline Evaluation Tests');
