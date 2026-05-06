@@ -60,3 +60,20 @@ const SYMBOL_POOL = buildSymbolPool();
 const FREE_SPINS_TRIGGER_COUNT = 3;
 const FREE_SPINS_COUNT = 10;
 const FREE_SPINS_MULTIPLIER = 2;
+
+// Dual-export: in the browser this file is loaded as a <script> and the
+// declarations above become window globals. In Node (tests, CI guards) we
+// also publish the same names on globalThis so sibling modules that rely on
+// the global pattern keep working, and on module.exports for `require()`.
+if (typeof module !== 'undefined' && module.exports) {
+  Object.assign(globalThis, {
+    SYMBOLS, PAYTABLE, PAYLINES, SYMBOL_POOL,
+    FREE_SPINS_TRIGGER_COUNT, FREE_SPINS_COUNT, FREE_SPINS_MULTIPLIER,
+    buildSymbolPool,
+  });
+  module.exports = {
+    SYMBOLS, PAYTABLE, PAYLINES, SYMBOL_POOL,
+    FREE_SPINS_TRIGGER_COUNT, FREE_SPINS_COUNT, FREE_SPINS_MULTIPLIER,
+    buildSymbolPool,
+  };
+}

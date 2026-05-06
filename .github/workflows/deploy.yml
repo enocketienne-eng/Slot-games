@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Guard against test/source redeclaration drift
+        run: node scripts/check-no-redeclare.js
       - name: Run game logic tests
         run: node tests/gameLogic.test.js
 

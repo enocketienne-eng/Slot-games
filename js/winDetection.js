@@ -1,3 +1,9 @@
+// In Node (tests, CI guards), pull symbols.js so it can publish PAYTABLE /
+// PAYLINES / FREE_SPINS_TRIGGER_COUNT on globalThis before any function here
+// is called. In the browser `require` is undefined and this is a no-op —
+// symbols.js is loaded via a prior <script> tag in index.html.
+if (typeof require !== 'undefined') require('./symbols.js');
+
 // Evaluate a single payline against the grid
 // grid[reelIndex][rowIndex]
 function evaluatePayline(grid, payline) {
@@ -85,4 +91,13 @@ function evaluateWins(grid, bet) {
 
 function totalPayout(wins) {
   return wins.reduce((sum, w) => sum + w.payout, 0);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  Object.assign(globalThis, {
+    evaluatePayline, evaluateScatter, evaluateWins, totalPayout, countScatters,
+  });
+  module.exports = {
+    evaluatePayline, evaluateScatter, evaluateWins, totalPayout, countScatters,
+  };
 }
