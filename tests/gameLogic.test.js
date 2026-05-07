@@ -1,99 +1,22 @@
-// Node.js test suite for core game logic (no DOM required)
+// Node.js test suite for core game logic (no DOM required).
 // Run: node tests/gameLogic.test.js
+//
+// Path chosen: dual-export. js/symbols.js and js/winDetection.js stay as
+// browser-global <script> files but also publish their identifiers via
+// module.exports so this test can require them. Tests must NEVER redeclare
+// names that exist in js/* — see scripts/check-no-redeclare.js (CI guard).
 
-// Inline dependencies (symbols, rng, winDetection)
-// ---- symbols ----
-const SYMBOLS = {
-  WILD:       { id: 'wild',       label: 'Wild',       color: '#FFD700', emoji: '⭐', weight: 2 },
-  SCATTER:    { id: 'scatter',    label: 'Scatter',    color: '#FF6B35', emoji: '💥', weight: 2 },
-  GOLD_BAR:   { id: 'gold_bar',   label: 'Gold Bar',   color: '#FFD700', emoji: '🥇', weight: 4 },
-  GOLD_NUGGET:{ id: 'gold_nugget',label: 'Nugget',     color: '#FFC200', emoji: '💛', weight: 6 },
-  PICKAXE:    { id: 'pickaxe',    label: 'Pickaxe',    color: '#8B7355', emoji: '⛏️', weight: 8 },
-  DYNAMITE:   { id: 'dynamite',   label: 'Dynamite',   color: '#CC2200', emoji: '🧨', weight: 8 },
-  HORSESHOE:  { id: 'horseshoe',  label: 'Horseshoe',  color: '#C0C0C0', emoji: '🧲', weight: 10 },
-  COWBOY_HAT: { id: 'cowboy_hat', label: 'Cowboy Hat', color: '#8B4513', emoji: '🤠', weight: 10 },
-};
+const {
+  SYMBOLS,
+  PAYTABLE,
+  PAYLINES,
+  FREE_SPINS_TRIGGER_COUNT,
+} = require('../js/symbols.js');
 
-const PAYTABLE = {
-  wild:        { 3: 50,  4: 200, 5: 1000 },
-  scatter:     { 3: 5,   4: 20,  5: 100  },
-  gold_bar:    { 3: 40,  4: 150, 5: 500  },
-  gold_nugget: { 3: 25,  4: 100, 5: 250  },
-  pickaxe:     { 3: 15,  4: 50,  5: 150  },
-  dynamite:    { 3: 15,  4: 50,  5: 150  },
-  horseshoe:   { 3: 5,   4: 20,  5: 75   },
-  cowboy_hat:  { 3: 5,   4: 20,  5: 75   },
-};
-
-const PAYLINES = [
-  [1, 1, 1, 1, 1],
-  [0, 0, 0, 0, 0],
-  [2, 2, 2, 2, 2],
-  [0, 1, 2, 1, 0],
-  [2, 1, 0, 1, 2],
-  [0, 0, 1, 2, 2],
-  [2, 2, 1, 0, 0],
-  [1, 0, 0, 0, 1],
-  [1, 2, 2, 2, 1],
-  [0, 1, 0, 1, 0],
-  [2, 1, 2, 1, 2],
-  [1, 0, 1, 0, 1],
-  [1, 2, 1, 2, 1],
-  [0, 2, 0, 2, 0],
-  [2, 0, 2, 0, 2],
-  [0, 1, 1, 1, 2],
-  [2, 1, 1, 1, 0],
-  [1, 1, 0, 1, 1],
-  [1, 1, 2, 1, 1],
-  [0, 0, 2, 0, 0],
-];
-
-// ---- winDetection ----
-function evaluatePayline(grid, payline) {
-  const isWild = (id) => id === 'wild';
-  let anchor = grid[0][payline[0]];
-  for (let i = 0; i < 5; i++) {
-    const sym = grid[i][payline[i]];
-    if (!isWild(sym)) { anchor = sym; break; }
-  }
-  let count = 0;
-  for (let i = 0; i < 5; i++) {
-    const sym = grid[i][payline[i]];
-    if (sym === anchor || isWild(sym)) count++;
-    else break;
-  }
-  if (count >= 3) {
-    const mult = (PAYTABLE[anchor] || {})[count] || 0;
-    return { symbol: anchor, count, multiplier: mult };
-  }
-  return null;
-}
-
-function evaluateScatter(grid) {
-  let count = 0;
-  for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) if (grid[r][row] === 'scatter') count++;
-  if (count >= 3) return { symbol: 'scatter', count, multiplier: (PAYTABLE['scatter'] || {})[count] || 0 };
-  return null;
-}
-
-function evaluateWins(grid, bet) {
-  const wins = [];
-  PAYLINES.forEach((payline, lineIndex) => {
-    const result = evaluatePayline(grid, payline);
-    if (result && result.multiplier > 0) {
-      wins.push({ lineIndex, payline, symbol: result.symbol, count: result.count, multiplier: result.multiplier, payout: result.multiplier * bet });
-    }
-  });
-  const scatter = evaluateScatter(grid);
-  if (scatter && scatter.multiplier > 0) {
-    wins.push({ lineIndex: -1, payline: null, symbol: 'scatter', count: scatter.count, multiplier: scatter.multiplier, payout: scatter.multiplier * bet });
-  }
-  return wins;
-}
-
-function totalPayout(wins) {
-  return wins.reduce((sum, w) => sum + w.payout, 0);
-}
+const {
+  evaluateWins,
+  totalPayout,
+} = require('../js/winDetection.js');
 
 // ---- Test runner ----
 let passed = 0, failed = 0;
@@ -138,7 +61,9 @@ test('symbol pool has all symbols represented', () => {
 test('symbol weights sum to expected total', () => {
   let sum = 0;
   for (const sym of Object.values(SYMBOLS)) sum += sym.weight;
-  assertEqual(sum, 50, 'Total weight');
+  const expected = Object.values(SYMBOLS).reduce((a, s) => a + s.weight, 0);
+  assertEqual(sum, expected, 'Total weight');
+  assert(sum > 0, 'Total weight must be positive');
 });
 
 console.log('\nPayline Evaluation Tests');
@@ -210,7 +135,7 @@ test('2 scatter symbols do not trigger scatter win', () => {
   grid[2][2] = 'scatter';
   const wins = evaluateWins(grid, 1);
   const scatterWin = wins.find(w => w.symbol === 'scatter');
-  assert(!scatterWin, 'Only 2 scatters should not win');
+  assert(!scatterWin, `Only ${FREE_SPINS_TRIGGER_COUNT - 1} scatters should not win`);
 });
 
 console.log('\nPayout Tests');

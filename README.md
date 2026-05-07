@@ -6,7 +6,7 @@ A Gold Rush-themed HTML5 slot game. No dependencies, no build step — pure HTML
 
 - 5-reel × 3-row slot engine
 - 20 paylines with win-line highlighting
-- 8 symbols: Wild ⭐, Scatter 💥, Gold Bar 🥇, Nugget 💛, Pickaxe ⛏️, Dynamite 🧨, Horseshoe 🧲, Cowboy Hat 🤠
+- 8 symbols: Wild ⭐, Scatter 💥, Gold Bar 🥇, Nugget 💛, Pickaxe ⛏️, Horseshoe 🧲, Cowboy Hat 🤠, TNT 🧨
 - Smooth reel-stop animation (staggered)
 - Balance tracker, configurable bet (1–50), session RTP stats
 - Spacebar shortcut to spin
