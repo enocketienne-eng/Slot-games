@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultimate Piggy Bank Smash</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="game-wrapper">
+
+    <div class="game-header">
+      <h1>Ultimate Piggy Bank Smash</h1>
+      <p class="subtitle">Smash the piggy &middot; coins everywhere!</p>
+    </div>
+
+    <div class="reel-section">
+      <div class="reel-frame">
+        <div class="win-banner" id="winBanner">
+          <div class="win-banner-label" id="winBannerLabel">WIN!</div>
+          <div class="win-banner-amount" id="winBannerAmount"></div>
+        </div>
+        <canvas id="reelCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="balance-bar">
+      <div class="balance-item">
+        <span class="balance-label">Balance</span>
+        <span class="balance-value" id="balanceDisplay">1000</span>
+      </div>
+      <div class="balance-item">
+        <span class="balance-label">Last Win</span>
+        <span class="balance-value" id="lastWinDisplay">&mdash;</span>
+      </div>
+      <div class="balance-item">
+        <span class="balance-label">Bet</span>
+        <span class="balance-value" id="betDisplayTop">1</span>
+      </div>
+    </div>
+
+    <div class="bonus-badge" id="bonusBadge">FREE SPINS &mdash; &times;2</div>
+
+    <div class="control-bar">
+      <div class="bet-group">
+        <span class="bet-label">Bet</span>
+        <button class="btn-adj" id="betDown" aria-label="Decrease bet">&minus;</button>
+        <span class="bet-display" id="betValue">1</span>
+        <button class="btn-adj" id="betUp" aria-label="Increase bet">+</button>
+      </div>
+
+      <button class="btn-max-bet" id="maxBet">MAX</button>
+
+      <div class="spin-btn-wrap">
+        <button class="btn-spin" id="spinBtn" aria-label="Spin reels">SPIN</button>
+      </div>
+    </div>
+
+    <div class="secondary-bar">
+      <span class="stats-text" id="statsBar">Spins: 0 | Spent: 0 | Won: 0 | RTP: &mdash;</span>
+      <button class="btn-paytable" id="paytableToggle">&#9660; PAYTABLE</button>
+    </div>
+
+    <div class="paytable-panel" id="paytablePanel">
+      <div class="paytable-title">Paytable &middot; Multiplier &times; Bet</div>
+      <div class="pt-grid" id="ptGrid"></div>
+      <p class="paytable-note">
+        Piggy Bank substitutes all symbols except Coin Bag &nbsp;&middot;&nbsp;
+        3+ Coin Bags anywhere = 10 Free Spins (&times;2 multiplier)
+      </p>
+    </div>
+
+  </div>
+
+  <script src="js/symbols.js"></script>
+  <script src="js/rng.js"></script>
+  <script src="js/winDetection.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    const canvas = document.getElementById('reelCanvas');
+    const renderer = new Renderer(canvas);
+    renderer.drawGrid(renderer.grid, [], 0);
+
+    const game = new UPBSGame(renderer);
+
+    const balanceEl    = document.getElementById('balanceDisplay');
+    const betValueEl   = document.getElementById('betValue');
+    const betTopEl     = document.getElementById('betDisplayTop');
+    const lastWinEl    = document.getElementById('lastWinDisplay');
+    const spinBtn      = document.getElementById('spinBtn');
+    const statsBar     = document.getElementById('statsBar');
+    const bonusBadge   = document.getElementById('bonusBadge');
+    const winBanner    = document.getElementById('winBanner');
+    const winBannerLabel  = document.getElementById('winBannerLabel');
+    const winBannerAmount = document.getElementById('winBannerAmount');
+
+    let bannerTimer = null;
+
+    function showBanner(label, amount, tier) {
+      winBannerLabel.textContent = label;
+      winBannerAmount.textContent = (typeof amount === 'number') ? `${amount} COINS` : amount;
+      winBanner.className = 'win-banner visible' + (tier === 'mega' ? ' mega-win' : tier === 'big' ? ' big-win' : '');
+      if (bannerTimer) clearTimeout(bannerTimer);
+      const duration = tier === 'mega' ? 4000 : tier === 'big' ? 3000 : 2200;
+      bannerTimer = setTimeout(hideBanner, duration);
+    }
+
+    function hideBanner() {
+      winBanner.className = 'win-banner';
+    }
+
+    function updateUI() {
+      const s = game.getStats();
+      balanceEl.textContent = s.balance;
+      betValueEl.textContent = s.bet;
+      betTopEl.textContent = s.bet;
+      statsBar.textContent = `Spins: ${s.spinCount} | Spent: ${s.totalSpent} | Won: ${s.totalWon} | RTP: ${s.rtp}%`;
+    }
+
+    game.onBalanceChange = (bal) => { balanceEl.textContent = bal; };
+
+    game.onSpin = () => {
+      spinBtn.disabled = true;
+      spinBtn.classList.add('spinning');
+      spinBtn.textContent = '...';
+      hideBanner();
+      lastWinEl.textContent = '—';
+      updateUI();
+    };
+
+    game.onWin = (wins, payout) => {
+      lastWinEl.textContent = payout;
+      lastWinEl.classList.add('win-flash');
+      setTimeout(() => lastWinEl.classList.remove('win-flash'), 1800);
+
+      const multiplier = payout / game.bet;
+      let tier = 'normal', label = 'WIN!';
+      if (multiplier >= 50) { tier = 'mega'; label = '🐷 MEGA SMASH! 🐷'; }
+      else if (multiplier >= 20) { tier = 'big'; label = '★ BIG SMASH! ★'; }
+
+      showBanner(label, payout, tier);
+      updateUI();
+    };
+
+    game.onFreeSpinsTriggered = (count, mult) => {
+      bonusBadge.textContent = `FREE SPINS: ${count} remaining (×${mult})`;
+      bonusBadge.classList.add('active');
+      showBanner('FREE SPINS TRIGGERED!', `${count} SPINS × ${mult}`, 'big');
+    };
+
+    game.onFreeSpinsUpdate = (remaining) => {
+      bonusBadge.textContent = `FREE SPINS: ${remaining} remaining (×${game.freeSpinsMultiplier})`;
+    };
+
+    game.onFreeSpinsComplete = () => {
+      bonusBadge.classList.remove('active');
+      showBanner('Free Spins Complete!', game.totalWon, 'normal');
+    };
+
+    document.getElementById('betDown').addEventListener('click', () => {
+      game.setBet(game.bet - 1);
+      updateUI();
+    });
+    document.getElementById('betUp').addEventListener('click', () => {
+      game.setBet(game.bet + 1);
+      updateUI();
+    });
+    document.getElementById('maxBet').addEventListener('click', () => {
+      game.setBet(50);
+      updateUI();
+    });
+
+    async function doSpin() {
+      if (!game.canSpin()) return;
+      await game.spin();
+      spinBtn.disabled = false;
+      spinBtn.classList.remove('spinning');
+      spinBtn.textContent = game.inBonusRound ? 'FREE' : 'SPIN';
+
+      if (!game.inBonusRound && game.balance < game.bet) {
+        spinBtn.disabled = true;
+        showBanner('Out of Coins!', 'Refresh to restart', 'normal');
+      }
+      updateUI();
+    }
+
+    spinBtn.addEventListener('click', doSpin);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.repeat && game.canSpin()) {
+        e.preventDefault();
+        doSpin();
+      }
+    });
+
+    const ptGrid = document.getElementById('ptGrid');
+    const shapeGlyph = {
+      piggybank: '🐷', coinbag: '💰', goldcoin: '$', silvercoin: '★',
+      piglet: '🐽', horseshoe: '∪', trophy: '🏆', diamond: '◆',
+    };
+    Object.entries(PAYTABLE).forEach(([id, pays]) => {
+      const sym = Object.values(SYMBOLS).find(s => s.id === id);
+      if (!sym) return;
+      const row = document.createElement('div');
+      row.className = 'pt-row';
+      row.innerHTML = `<span class="pt-sym" style="color:${sym.color}">${shapeGlyph[sym.shape] || '•'} ${sym.label}</span>
+        <span class="pt-vals">${pays[3]}× · ${pays[4]}× · ${pays[5]}×</span>`;
+      ptGrid.appendChild(row);
+    });
+
+    document.getElementById('paytableToggle').addEventListener('click', function () {
+      const panel = document.getElementById('paytablePanel');
+      panel.classList.toggle('open');
+      this.textContent = panel.classList.contains('open') ? '▲ PAYTABLE' : '▼ PAYTABLE';
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
