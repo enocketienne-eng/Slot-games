@@ -1,4 +1,4 @@
-// Canvas renderer — visual spec from LUC-4
+// Canvas renderer — visual spec from LUC-4, asset pack from LUC-12
 const CELL_W = 110;
 const CELL_H = 100;
 const REEL_COUNT = 5;
@@ -23,6 +23,40 @@ const C = {
 
 function getSymbol(id) {
   return Object.values(SYMBOLS).find(s => s.id === id);
+}
+
+// Symbol image cache — preload all PNGs once, then drawImage from the cache.
+// If an image is not yet loaded (or fails to load), drawSymbol falls back to
+// the canvas-shape renderer so the game stays playable.
+const SYMBOL_IMAGES = {};
+let SYMBOL_IMAGES_READY = false;
+
+function preloadSymbolImages() {
+  const entries = Object.values(SYMBOLS).filter(s => s.image);
+  if (entries.length === 0) return Promise.resolve();
+  return Promise.all(entries.map(sym => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => { SYMBOL_IMAGES[sym.id] = img; resolve(); };
+    img.onerror = () => { console.warn(`Symbol image failed: ${sym.image}`); resolve(); };
+    img.src = sym.image;
+  }))).then(() => { SYMBOL_IMAGES_READY = true; });
+}
+
+function drawSymbolImage(ctx, sym, cx, cy, cellW, cellH) {
+  const img = SYMBOL_IMAGES[sym.id];
+  if (!img) return false;
+  // Reserve space at the bottom for the label
+  const padTop = 4;
+  const padBottom = 14;
+  const maxW = cellW - 8;
+  const maxH = cellH - padTop - padBottom;
+  const fit = Math.min(maxW / img.width, maxH / img.height);
+  const w = img.width * fit;
+  const h = img.height * fit;
+  const x = cx - w / 2;
+  const y = cy - h / 2 - 4; // shift up slightly to balance label
+  ctx.drawImage(img, x, y, w, h);
+  return true;
 }
 
 // Draw a single symbol using canvas shapes per spec §10
@@ -205,7 +239,10 @@ function drawCell(ctx, id, x, y, w, h, highlighted) {
   const cx = x + w / 2;
   const cy = y + h / 2 - 8;
 
-  drawSymbolShape(ctx, sym, cx, cy, Math.min(w, h));
+  // Prefer the loaded PNG asset; fall back to the canvas shape if missing.
+  if (!drawSymbolImage(ctx, sym, cx, cy, w, h)) {
+    drawSymbolShape(ctx, sym, cx, cy, Math.min(w, h));
+  }
 
   // Label
   ctx.fillStyle = highlighted ? C.goldPrimary : C.offWhite;

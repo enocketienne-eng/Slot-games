@@ -19,7 +19,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: linear-gradient(180deg, #1A0A00 0%, #3B1E08 60%, #1A0A00 100%);
+  background:
+    linear-gradient(180deg, rgba(26,10,0,0.55) 0%, rgba(59,30,8,0.35) 50%, rgba(26,10,0,0.7) 100%),
+    url('assets/ui/background.jpg') center top / cover no-repeat,
+    #1A0A00;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -29,17 +32,14 @@ body {
   overflow-x: hidden;
 }
 
-/* Mountain silhouette background (§8) */
+/* Dark vignette on top of the painted background to keep UI legible */
 body::before {
   content: '';
   position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 140px;
-  background: linear-gradient(to top, #0d0500 0%, transparent 100%);
-  clip-path: polygon(0% 100%, 0% 55%, 5% 70%, 10% 40%, 18% 65%, 25% 30%, 32% 55%, 40% 20%, 47% 45%, 54% 15%, 60% 38%, 68% 22%, 75% 48%, 82% 28%, 90% 50%, 96% 35%, 100% 55%, 100% 100%);
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.7;
 }
 
 .game-wrapper {
@@ -53,22 +53,32 @@ body::before {
   gap: 0;
 }
 
-/* ── Header ── */
+/* ── Header — uses the painted Game_Title asset; text remains for SEO/a11y ── */
 .game-header {
   width: 100%;
-  background: var(--deep-brown);
-  border-bottom: 2px solid var(--gold-dark);
-  padding: 10px 16px 8px;
+  background: transparent;
+  padding: 8px 16px 4px;
   text-align: center;
 }
 
-h1 {
+.title-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  max-height: 130px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+}
+
+h1.title-text-fallback {
   font-family: 'Rye', 'Georgia', serif;
   font-size: clamp(1.8rem, 5vw, 2.6rem);
   color: var(--gold-primary);
   text-shadow: 2px 2px 0 var(--shadow-black), 0 0 20px rgba(245,197,24,0.4);
   letter-spacing: 4px;
   line-height: 1;
+  position: absolute;
+  left: -9999px;
 }
 
 .subtitle {
@@ -77,6 +87,7 @@ h1 {
   font-size: 0.78rem;
   letter-spacing: 2px;
   margin-top: 2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 
 /* ── Reel window ── */
@@ -305,36 +316,34 @@ h1 {
 }
 
 .btn-spin {
-  width: 80px; height: 80px;
+  width: 90px; height: 90px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 35%, #FFE066, var(--gold-primary) 40%, var(--gold-dark) 75%, #7a5c00 100%);
-  border: 3px solid var(--gold-primary);
-  box-shadow: 0 0 16px rgba(245,197,24,0.4), inset 0 2px 6px rgba(255,255,255,0.25);
-  color: var(--deep-brown);
+  background: url('assets/ui/spin_btn.png') center / contain no-repeat, transparent;
+  border: none;
+  box-shadow: 0 0 16px rgba(245,197,24,0.45);
+  color: transparent;            /* hide the SPIN text — asset already has it */
   font-family: 'Rye', serif;
-  font-size: 1rem;
+  font-size: 0;
   letter-spacing: 2px;
   cursor: pointer;
-  transition: transform 0.08s, box-shadow 0.15s, background 0.2s;
+  transition: transform 0.08s, box-shadow 0.15s, filter 0.2s;
   position: relative;
   overflow: hidden;
+  padding: 0;
 }
 .btn-spin:hover {
+  background-image: url('assets/ui/spin_btn_hover.png');
   transform: scale(1.05);
-  box-shadow: 0 0 28px rgba(245,197,24,0.6), inset 0 2px 6px rgba(255,255,255,0.3);
+  box-shadow: 0 0 28px rgba(245,197,24,0.6);
 }
 .btn-spin:active { transform: scale(0.95); }
 .btn-spin:disabled {
-  background: radial-gradient(circle at 38% 35%, #666, #444 60%, #222);
-  border-color: #555;
+  filter: grayscale(0.85) brightness(0.55);
   box-shadow: none;
-  color: #888;
   cursor: not-allowed;
 }
 .btn-spin.spinning {
-  background: radial-gradient(circle at 38% 35%, #888, #555 60%, #333);
-  border-color: #777;
-  color: #aaa;
+  filter: grayscale(0.6) brightness(0.75);
   box-shadow: none;
   animation: spinBtnPulse 0.7s ease-in-out infinite alternate;
 }

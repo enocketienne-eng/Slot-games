@@ -11,7 +11,8 @@
 
     <!-- Header -->
     <div class="game-header">
-      <h1>Gold Rush</h1>
+      <h1 class="title-text-fallback">Gold Rush</h1>
+      <img class="title-image" src="assets/ui/title.png" alt="Gold Rush" />
       <p class="subtitle">Strike it rich on the frontier!</p>
     </div>
 
@@ -90,6 +91,13 @@
     const canvas = document.getElementById('reelCanvas');
     const renderer = new Renderer(canvas);
     renderer.drawGrid(renderer.grid, [], 0);
+
+    // Preload symbol PNG assets, then redraw once they're ready so the
+    // initial frame shows the painted symbols rather than the canvas
+    // shape fallback.
+    preloadSymbolImages().then(() => {
+      renderer.drawGrid(renderer.grid, renderer.winLines || [], 0);
+    });
 
     const game = new GoldRushGame(renderer);
 
